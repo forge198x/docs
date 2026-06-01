@@ -20,4 +20,9 @@ this repo holds design notes rather than user docs.
   record `forge198x-ide.md`.
 - Hardware facts — the umbrella `reference/` library.
 
-Empty for now; it fills in when the build starts.
+## Design notes
+
+[`design-notes.md`](design-notes.md) — the integrator loop (edit → assemble →
+run → debug) sketched against the real Asm198x CLI + Emu198x MCP surfaces, the
+front-end stance, the agent-native contract, and the concrete signals that would
+un-defer the build. Captured now; the build still waits.
