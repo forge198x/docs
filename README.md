@@ -14,7 +14,7 @@ Forge198x is **deferred** — gated on Asm198x, Build198x, and Emu198x surfaces 
 
 ## Not here
 
-- The decision to pursue Forge198x and its constraints — the umbrella decision record [`../../decisions/forge198x-ide.md`](../../decisions/forge198x-ide.md).
+- The decision to pursue Forge198x and its constraints — the umbrella decision record `198x/decisions/forge198x-ide.md`.
 - Hardware facts — the umbrella `reference/` library.
 
 ## Design notes
