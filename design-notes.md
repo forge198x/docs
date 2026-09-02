@@ -47,6 +47,68 @@ scriptable/MCP interfaces) over a bespoke cross-platform app — boring technolo
 rescue-beats-replace at the tooling layer. A from-scratch IDE needs justification
 recorded in the decision record, not assumed here. No stack is chosen yet.
 
+## The assembler is the language service
+
+*Captured 2026-09-02, after the Asm198x browser playground shipped.*
+
+The playground (asm198x.github.io/playground/) is `crates/asm198x-web`, a
+`wasm-bindgen` shell over the assembler library with three calls — `assemble`,
+`listing`, `dialects` — each returning the CLI's own contract-shaped JSON. It
+came together in a day because nothing in it was new: the engine has no
+filesystem dependency, the site already checked the assembler out at its
+release tag, and Play198x had already worked out the excluded-crate pattern.
+Two things it showed are worth holding onto for Forge198x.
+
+**Highlighting is where a separate editor layer starts to go wrong.** Asm198x
+covers twenty-four dialects. Highlighting them with a grammar per dialect — a
+TextMate file, a Tree-sitter grammar, a regex table — means twenty-four
+grammars that drift from the assembler the moment a dialect learns a new word,
+and the assembler learns new words in most releases. The alternative is that
+the assembler answers the question: a `tokens(dialect, source)` call returning
+spans classified by the parser that decides what they mean — label, mnemonic,
+directive, macro name, register, comment — with errors underlined by the same
+diagnostics the CLI prints. Highlighting, completion, go-to-definition and
+diagnostics are then one thing, the assembler answering questions about a
+buffer, and an LSP server is one transport for it with wasm another. This is
+the "Forge owns only the editing UX; the language semantics come from Asm198x"
+line in §"The loop", taken to its end: the editor should not know what a Z80
+label looks like.
+
+**What that asks of Asm198x.** The semantic AST (`crates/asm198x/src/ast.rs`)
+is source-preserving — it is what the formatter round-trips through — so it
+already carries the spans a token service would classify. Coverage is the gap,
+not design: as of v0.0.57 the Z80 dialects and a migrating subset lower
+through the AST, and the rest still lower directly behind the dialect
+boundary. Asm198x's own roadmap (`decisions/roadmap-sequencing.md`) already
+lists this consumer under the name *language surface*, gated on the AST and
+staged CPU tier by CPU tier — "finish the AST for a CPU tier before the
+AST-consumers scale across it". So a `tokens` call is an Asm198x change that
+arrives per tier, not a Forge198x one, and nothing on the Forge side should
+assume it exists yet.
+
+**Three fronts on one back.** Once the join exists, the same shell serves:
+
+- the Asm198x playground, as a demonstration and as the first place a break in
+  the join shows up (the site builds the module from the release tag, so it is
+  the integration test);
+- Code198x in-lesson editing, the unit's sample loaded, edited, assembled and
+  run beside the text — the front with an audience;
+- the Forge198x workbench itself, whatever editor it extends.
+
+The edit → assemble → run half of that loop in a browser is one piece short:
+an Emu198x wasm build. The join is `assemble()`'s `bytes` and `origin` going
+into whichever core loads, which is why the shell returns the CLI's contract
+rather than anything page-specific. Delivery today is each site building the
+module from the tag; an npm package becomes the answer when a consumer is on a
+different build pipeline, and that is a hosting decision to take deliberately.
+
+**Consequence for the front-end stance above.** "Prefer extending an existing
+editor" still holds, and this sharpens why: an editor extension that is a thin
+LSP client over an assembler-provided language service is the boring shape.
+The thing to avoid is the extension growing its own understanding of any
+dialect. Drift trigger: *"add a syntax file for dialect X"* — stop, and ask
+the assembler for tokens instead.
+
 ## Agent-native parity (hard rule)
 
 Every workbench capability must be reachable through Emu198x's MCP/scriptable
@@ -66,13 +128,16 @@ source of human-only capability. See the decision record for the full list.
 The build waits on its dependencies being stable enough to integrate. Concrete
 signals to watch:
 
-- **Asm198x matured past the early-subset slice** — disassembly exists, the 6502
-  dialect reaches real source-compatibility (expressions, directives, segments,
-  macros), and a second CPU has proven the engine/dialect seam. (As of v0.0.2 it
-  is an early-subset 6502 assembler only.)
+- **Asm198x matured past the early-subset slice** — *met as of v0.0.57
+  (2026-09-02)*: twenty-four dialects across the 6502, Z80, 68xx, 68000 and
+  16-bit families, differential against the reference assemblers, and a
+  browser build. Still open on the Asm198x side for Forge specifically: the
+  token service in §"The assembler is the language service".
 - **Emu198x's debug surface settled** — the query/step/memory/disasm/watch tools
-  above stable enough to build against without churn.
-- **A stable symbol/listing format from Asm198x** for the bridge in §"The loop".
+  above stable enough to build against without churn. Not yet assessed here.
+- **A stable symbol/listing format from Asm198x** for the bridge in §"The loop"
+  — *met*: Debug198x, the NDJSON sidecar Asm198x writes and Emu198x reads,
+  frozen at v1 on 2026-08-18 and graduated to its own project.
 
 When those hold, revisit `forge198x-ide.md`, lift the deferral there, and start
 the flagship workspace.
